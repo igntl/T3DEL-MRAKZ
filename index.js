@@ -53,7 +53,7 @@ client.on('messageCreate', async (message) => {
 
     const button = new ButtonBuilder()
       .setCustomId('fix_name')
-      .setLabel('تعديل مركزي')
+      .setLabel('أضغط هنا')
       .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder().addComponents(button);
