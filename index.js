@@ -16,7 +16,7 @@ const client = new Client({
 });
 
 // 🔒 الروم
-const CHANNEL_ID = "1496550321193881702";
+const CHANNEL_ID = "1483219896069525665";
 
 // ⏱️ كولداون (دقيقتين)
 const cooldown = new Map();
