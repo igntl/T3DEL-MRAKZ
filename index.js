@@ -15,14 +15,11 @@ const client = new Client({
   ]
 });
 
-// 🔒 الروم
 const CHANNEL_ID = "1483219896069525665";
 
-// ⏱️ كولداون (دقيقتين)
 const cooldown = new Map();
 const COOLDOWN = 2 * 60 * 1000;
 
-// 📌 المراكز
 const validPositions = [
   "ST","RF","CF","RLF","LRF",
   "CM","RCM","LCM","CDM",
@@ -31,7 +28,6 @@ const validPositions = [
   "GK"
 ];
 
-// 🔄 تحويل
 const map = {
   RCM: "CM",
   LCM: "CM",
@@ -45,21 +41,19 @@ client.on('clientReady', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// 📩 نشر الزر
+// نشر الزر
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-
   if (message.channel.id !== CHANNEL_ID) return;
 
   if (message.content.toLowerCase() === "!button") {
-
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
     message.delete().catch(() => {});
 
     const button = new ButtonBuilder()
       .setCustomId('fix_name')
-      .setLabel('أضغط هنا')
+      .setLabel('تعديل مركزي')
       .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder().addComponents(button);
@@ -71,94 +65,93 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// 🎮 الزر
+// الزر
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
+  if (interaction.customId !== 'fix_name') return;
 
-  if (interaction.customId === 'fix_name') {
+  const userId = interaction.user.id;
+  const now = Date.now();
 
-    const userId = interaction.user.id;
-    const now = Date.now();
+  // كولداون
+  if (cooldown.has(userId)) {
+    const time = cooldown.get(userId) + COOLDOWN;
 
-    // ⛔ كولداون
-    if (cooldown.has(userId)) {
-      const time = cooldown.get(userId) + COOLDOWN;
-
-      if (now < time) {
-        const left = Math.ceil((time - now) / 1000);
-        return interaction.reply({
-          content: `⏳ انتظر ${left} ثانية`,
-          ephemeral: true
-        });
-      }
-    }
-
-    cooldown.set(userId, now);
-
-    const member = interaction.member;
-    const botMember = interaction.guild.members.me;
-
-    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
+    if (now < time) {
+      const left = Math.ceil((time - now) / 1000);
       return interaction.reply({
-        content: "❌ ما عندي صلاحية",
+        content: `⏳ انتظر ${left} ثانية`,
         ephemeral: true
       });
     }
+  }
 
-    let nickname = member.nickname || member.user.username;
+  cooldown.set(userId, now);
 
-    // 🧹 حذف |
-    nickname = nickname.replace(/\|/g, "");
+  const member = interaction.member;
+  const botMember = interaction.guild.members.me;
 
-    // 🔥 فصل الإيموجي والرموز
-    let words = nickname
-      .replace(/([^\w\s])/g, " $1 ")
-      .split(/\s+/)
-      .filter(w => w.length > 0);
+  if (!botMember.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
+    return interaction.reply({
+      content: "❌ ما عندي صلاحية",
+      ephemeral: true
+    });
+  }
 
-    let positions = [];
-    let nameParts = [];
+  let original = member.nickname || member.user.username;
 
-    for (let word of words) {
-      let upper = word.toUpperCase();
+  // نحذف فقط | من النسخة المؤقتة
+  let cleanForScan = original.replace(/\|/g, "");
 
-      if (validPositions.includes(upper)) {
-        let mapped = map[upper] || upper;
-        positions.push(mapped);
-      } else {
-        nameParts.push(word);
-      }
+  let words = cleanForScan.split(/\s+/);
+
+  let positions = [];
+
+  for (let word of words) {
+    let clean = word.toUpperCase().replace(/[^A-Z]/g, '');
+
+    if (validPositions.includes(clean)) {
+      let mapped = map[clean] || clean;
+      positions.push(mapped);
     }
+  }
 
-    // ✔️ حذف التكرار + أول مركزين
-    positions = [...new Set(positions)].slice(0, 2);
+  // حذف التكرار + أول مركزين
+  positions = [...new Set(positions)].slice(0, 2);
 
-    if (positions.length === 0) {
-      return interaction.reply({
-        content: "❌ ما لقيت مراكز في اسمك",
-        ephemeral: true
-      });
-    }
+  if (positions.length === 0) {
+    return interaction.reply({
+      content: "❌ ما لقيت مراكز في اسمك",
+      ephemeral: true
+    });
+  }
 
-    // 🧠 إعادة الاسم (مع الإيموجي)
-    let finalName = nameParts.join(" ").replace(/\s+/g, " ").trim();
+  // ✨ هنا السر:
+  // نحذف المراكز من الاسم بدون ما نخربه
+  let finalName = original;
 
-    let newName = `${positions.join(" ")} | ${finalName}`;
+  for (let pos of validPositions) {
+    const regex = new RegExp(`\\b${pos}\\b`, 'gi');
+    finalName = finalName.replace(regex, '');
+  }
 
-    try {
-      await member.setNickname(newName);
+  finalName = finalName.replace(/\|/g, '').replace(/\s+/g, ' ').trim();
 
-      await interaction.reply({
-        content: "✅ تم تعديل اسمك",
-        ephemeral: true
-      });
+  let newName = `${positions.join(" ")} | ${finalName}`;
 
-    } catch {
-      await interaction.reply({
-        content: "❌ ما قدرت أغير اسمك (يمكن رتبتك أعلى مني)",
-        ephemeral: true
-      });
-    }
+  try {
+    await member.setNickname(newName);
+
+    await interaction.reply({
+      content: "✅ تم تعديل اسمك",
+      ephemeral: true
+    });
+
+  } catch {
+    await interaction.reply({
+      content: "❌ ما قدرت أغير اسمك",
+      ephemeral: true
+    });
   }
 });
 
