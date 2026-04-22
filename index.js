@@ -16,7 +16,7 @@ const client = new Client({
 });
 
 // 🔒 الروم
-const CHANNEL_ID = "1483219896069525665";
+const CHANNEL_ID = "1496550321193881702";
 
 // ⏱️ كولداون (دقيقتين)
 const cooldown = new Map();
@@ -31,7 +31,7 @@ const validPositions = [
   "GK"
 ];
 
-// 🔄 تحويل المراكز
+// 🔄 تحويل
 const map = {
   RCM: "CM",
   LCM: "CM",
@@ -45,7 +45,7 @@ client.on('clientReady', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// 📩 أمر نشر الزر
+// 📩 نشر الزر
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
@@ -53,14 +53,13 @@ client.on('messageCreate', async (message) => {
 
   if (message.content.toLowerCase() === "!button") {
 
-    // 🔒 للأدمن فقط
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
     message.delete().catch(() => {});
 
     const button = new ButtonBuilder()
       .setCustomId('fix_name')
-      .setLabel('تعديل مركزي')
+      .setLabel('أضغط هنا')
       .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder().addComponents(button);
@@ -72,7 +71,7 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// 🎮 زر
+// 🎮 الزر
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
 
@@ -108,10 +107,14 @@ client.on('interactionCreate', async (interaction) => {
 
     let nickname = member.nickname || member.user.username;
 
-    // 🧹 حذف أي |
+    // 🧹 حذف |
     nickname = nickname.replace(/\|/g, "");
 
-    let words = nickname.split(/\s+/);
+    // 🔥 فصل الإيموجي والرموز
+    let words = nickname
+      .replace(/([^\w\s])/g, " $1 ")
+      .split(/\s+/)
+      .filter(w => w.length > 0);
 
     let positions = [];
     let nameParts = [];
@@ -127,7 +130,7 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // 🔥 حذف التكرار + أول مركزين فقط
+    // ✔️ حذف التكرار + أول مركزين
     positions = [...new Set(positions)].slice(0, 2);
 
     if (positions.length === 0) {
@@ -137,7 +140,8 @@ client.on('interactionCreate', async (interaction) => {
       });
     }
 
-    let finalName = nameParts.join(" ").trim();
+    // 🧠 إعادة الاسم (مع الإيموجي)
+    let finalName = nameParts.join(" ").replace(/\s+/g, " ").trim();
 
     let newName = `${positions.join(" ")} | ${finalName}`;
 
