@@ -15,7 +15,7 @@ const client = new Client({
   ]
 });
 
-const CHANNEL_ID = "1483219896069525665";
+const CHANNEL_ID = "1496550321193881702";
 
 const cooldown = new Map();
 const COOLDOWN = 2 * 60 * 1000;
