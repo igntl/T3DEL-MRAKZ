@@ -9,7 +9,7 @@ const client = new Client({
 });
 
 // 🔒 حدد الروم هنا مباشرة
-const ALLOWED_CHANNEL_ID = "1483219896069525665";
+const ALLOWED_CHANNEL_ID = "1496550321193881702";
 
 // 📌 قائمة المراكز
 const validPositions = [
