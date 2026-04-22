@@ -1,4 +1,11 @@
-const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
+const { 
+  Client, 
+  GatewayIntentBits, 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle,
+  PermissionsBitField 
+} = require('discord.js');
 
 const client = new Client({
   intents: [
@@ -8,48 +15,101 @@ const client = new Client({
   ]
 });
 
-// 🔒 حدد الروم هنا مباشرة
-const ALLOWED_CHANNEL_ID = "1496550321193881702";
+// 🔒 الروم
+const CHANNEL_ID = "1483219896069525665";
 
-// 📌 قائمة المراكز
+// ⏱️ كولداون (دقيقتين)
+const cooldown = new Map();
+const COOLDOWN = 2 * 60 * 1000;
+
+// 📌 المراكز
 const validPositions = [
-  "ST","RF","CF",
+  "ST","RF","CF","RLF","LRF",
   "CM","RCM","LCM","CDM",
   "CB","LCB","RCB",
   "LB","RB","LRB","RLB",
   "GK"
 ];
 
-// 🔄 التحويل
-const positionMap = {
+// 🔄 تحويل المراكز
+const map = {
   RCM: "CM",
   LCM: "CM",
   RCB: "CB",
-  LCB: "CB"
+  LCB: "CB",
+  RLF: "RF",
+  LRF: "RF"
 };
 
+client.on('clientReady', () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+// 📩 أمر نشر الزر
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  // ❌ يشتغل فقط في الروم المحدد
-  if (message.channel.id !== ALLOWED_CHANNEL_ID) return;
+  if (message.channel.id !== CHANNEL_ID) return;
 
-  if (message.content.toLowerCase() === "!pos") {
+  if (message.content.toLowerCase() === "!button") {
 
-    // 🧼 حذف الأمر
+    // 🔒 للأدمن فقط
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+
     message.delete().catch(() => {});
 
-    const member = message.member;
-    const botMember = message.guild.members.me;
+    const button = new ButtonBuilder()
+      .setCustomId('fix_name')
+      .setLabel('تعديل مركزي')
+      .setStyle(ButtonStyle.Primary);
 
-    // 🔐 تأكد من صلاحيات البوت
-    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
-      const msg = await message.channel.send("❌ البوت ما عنده صلاحية تغيير الأسماء");
-      return setTimeout(() => msg.delete(), 3000);
+    const row = new ActionRowBuilder().addComponents(button);
+
+    message.channel.send({
+      content: "اضغط الزر لتعديل اسمك تلقائيًا",
+      components: [row]
+    });
+  }
+});
+
+// 🎮 زر
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  if (interaction.customId === 'fix_name') {
+
+    const userId = interaction.user.id;
+    const now = Date.now();
+
+    // ⛔ كولداون
+    if (cooldown.has(userId)) {
+      const time = cooldown.get(userId) + COOLDOWN;
+
+      if (now < time) {
+        const left = Math.ceil((time - now) / 1000);
+        return interaction.reply({
+          content: `⏳ انتظر ${left} ثانية`,
+          ephemeral: true
+        });
+      }
     }
 
-    // 📌 اسم اللاعب الحالي
+    cooldown.set(userId, now);
+
+    const member = interaction.member;
+    const botMember = interaction.guild.members.me;
+
+    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
+      return interaction.reply({
+        content: "❌ ما عندي صلاحية",
+        ephemeral: true
+      });
+    }
+
     let nickname = member.nickname || member.user.username;
+
+    // 🧹 حذف أي |
+    nickname = nickname.replace(/\|/g, "");
 
     let words = nickname.split(/\s+/);
 
@@ -60,37 +120,40 @@ client.on('messageCreate', async (message) => {
       let upper = word.toUpperCase();
 
       if (validPositions.includes(upper)) {
-        let mapped = positionMap[upper] || upper;
+        let mapped = map[upper] || upper;
         positions.push(mapped);
       } else {
         nameParts.push(word);
       }
     }
 
-    // حذف التكرار
-    positions = [...new Set(positions)];
+    // 🔥 حذف التكرار + أول مركزين فقط
+    positions = [...new Set(positions)].slice(0, 2);
 
-    // ❌ إذا ما فيه مراكز
     if (positions.length === 0) {
-      const msg = await message.channel.send("❌ ما لقيت مراكز في اسمك");
-      return setTimeout(() => msg.delete(), 3000);
+      return interaction.reply({
+        content: "❌ ما لقيت مراكز في اسمك",
+        ephemeral: true
+      });
     }
 
-    // 📌 الاسم بدون تغيير
     let finalName = nameParts.join(" ").trim();
 
-    // 🧠 النتيجة النهائية
-    let newNickname = `${positions.join(" ")} | ${finalName}`;
+    let newName = `${positions.join(" ")} | ${finalName}`;
 
     try {
-      await member.setNickname(newNickname);
+      await member.setNickname(newName);
 
-      const msg = await message.channel.send("✅ تم تعديل اسمك");
-      setTimeout(() => msg.delete(), 2000);
+      await interaction.reply({
+        content: "✅ تم تعديل اسمك",
+        ephemeral: true
+      });
 
-    } catch (err) {
-      const msg = await message.channel.send("❌ ما قدرت أغير اسمك (يمكن رتبتك أعلى مني)");
-      setTimeout(() => msg.delete(), 3000);
+    } catch {
+      await interaction.reply({
+        content: "❌ ما قدرت أغير اسمك (يمكن رتبتك أعلى مني)",
+        ephemeral: true
+      });
     }
   }
 });
